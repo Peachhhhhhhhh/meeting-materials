@@ -1,0 +1,894 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="referrer" content="no-referrer">
+  <title>会议材料管理系统</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root {
+      --bg: #f5f7fa;
+      --bg2: #ffffff;
+      --ink: #1a1d26;
+      --muted: #6b7280;
+      --rule: #e2e5ec;
+      --accent: #EF4444;
+      --accent-dark: #DC2626;
+      --accent-soft: #fef2f2;
+      --accent2: #10b981;
+      --danger: #ef4444;
+      --warn: #f59e0b;
+      --purple: #8b5cf6;
+      --radius: 12px;
+      --radius-sm: 8px;
+      --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+      --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
+      --transition: all 0.2s ease;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg); color: var(--ink); line-height: 1.5;
+      min-height: 100vh; font-size: 15px; padding-bottom: 72px;
+    }
+
+    /* ===== App Bar ===== */
+    .app-bar {
+      background: var(--accent); color: #fff;
+      padding: 10px 16px; position: sticky; top: 0; z-index: 100;
+    }
+    .app-bar-inner {
+      max-width: 540px; margin: 0 auto;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .app-bar-brand {
+      display: flex; align-items: center; gap: 10px;
+      font-size: 17px; font-weight: 600;
+    }
+    .app-bar-brand svg { width: 22px; height: 22px; }
+    .app-bar-action {
+      width: 34px; height: 34px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(255,255,255,0.15); border: none; color: #fff;
+      cursor: pointer; transition: var(--transition);
+    }
+    .app-bar-action:active { background: rgba(255,255,255,0.3); }
+    .app-bar-action svg { width: 18px; height: 18px; }
+
+    /* ===== Hero Header ===== */
+    .hero {
+      background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%);
+      color: #fff; padding: 16px 16px 22px;
+    }
+    .hero-inner { max-width: 540px; margin: 0 auto; }
+    .hero-top {
+      display: flex; align-items: flex-start; justify-content: space-between;
+      margin-bottom: 18px;
+    }
+    .hero-title { font-size: 26px; font-weight: 700; letter-spacing: -0.5px; }
+    .hero-date { font-size: 14px; opacity: 0.9; margin-top: 4px; }
+    .hero-refresh {
+      display: flex; align-items: center; gap: 6px;
+      background: rgba(255,255,255,0.2); border: none; color: #fff;
+      padding: 8px 14px; border-radius: 20px; font-size: 13px;
+      cursor: pointer; transition: var(--transition);
+    }
+    .hero-refresh:active { background: rgba(255,255,255,0.35); }
+    .hero-refresh svg { width: 15px; height: 15px; }
+
+    .search-box {
+      position: relative; display: flex; align-items: center;
+      background: #fff; border-radius: var(--radius);
+      padding: 0 14px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    .search-icon { flex-shrink: 0; width: 18px; height: 18px; color: var(--muted); }
+    .search-input {
+      flex: 1; border: none; outline: none; background: transparent;
+      padding: 13px 10px; font-size: 15px; font-family: inherit; color: var(--ink);
+    }
+    .search-input::placeholder { color: #9ca3af; }
+    .search-clear {
+      display: none; flex-shrink: 0; width: 18px; height: 18px;
+      border-radius: 50%; background: #e2e5ec; border: none;
+      cursor: pointer; color: #6b7280; font-size: 11px; line-height: 18px; text-align: center;
+    }
+    .search-clear.visible { display: block; }
+
+    /* ===== Filter Section ===== */
+    .filter-section { background: var(--bg2); padding: 12px 0; }
+    .filter-row-outer {
+      max-width: 540px; margin: 0 auto;
+      display: flex; align-items: flex-start; gap: 10px;
+      padding: 8px 16px; border-bottom: 1px solid #f3f4f6;
+    }
+    .filter-row-outer:last-child { border-bottom: none; }
+    .filter-label {
+      width: 64px; flex-shrink: 0;
+      font-size: 15px; font-weight: 700; color: var(--ink);
+      padding-top: 7px;
+    }
+    .filter-row-right {
+      flex: 1; min-width: 0;
+      display: flex; align-items: flex-start; gap: 8px;
+    }
+    .filter-row-inner {
+      flex: 1; min-width: 0;
+      display: flex; flex-wrap: nowrap; gap: 8px;
+      overflow: hidden; max-height: 34px;
+      transition: max-height 0.25s ease;
+    }
+    .filter-row-inner.expanded { flex-wrap: wrap; max-height: 200px; }
+    .filter-tag {
+      padding: 6px 14px; border-radius: 18px;
+      border: 1px solid var(--rule); background: var(--bg2);
+      font-size: 14px; color: var(--muted); cursor: pointer;
+      transition: var(--transition); white-space: nowrap; user-select: none;
+      flex-shrink: 0;
+    }
+    .filter-tag:active { transform: scale(0.96); }
+    .filter-tag.active { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+    .filter-expand-btn {
+      flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      width: 30px; height: 30px; border-radius: 50%;
+      background: #f9fafb; border: 1px solid var(--rule);
+      cursor: pointer; transition: var(--transition);
+    }
+    .filter-expand-btn:active { background: var(--accent-soft); }
+    .filter-expand-btn svg {
+      width: 14px; height: 14px; color: var(--muted);
+      transition: transform 0.25s ease;
+    }
+    .filter-expand-btn.expanded svg { transform: rotate(180deg); }
+
+    /* ===== File List ===== */
+    .content { max-width: 540px; margin: 0 auto; padding: 16px; }
+    .section-title {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 15px; font-weight: 700; color: var(--muted);
+      margin-bottom: 12px;
+    }
+    .section-title svg { width: 16px; height: 16px; }
+    .section-title .count {
+      background: var(--accent-soft); color: var(--accent);
+      font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 10px;
+    }
+
+    .file-card-list { display: flex; flex-direction: column; gap: 12px; }
+    .file-card {
+      background: var(--bg2); border-radius: var(--radius);
+      box-shadow: var(--shadow); overflow: hidden;
+    }
+    .file-card-inner {
+      display: flex; align-items: center; gap: 12px;
+      padding: 14px;
+    }
+    .file-icon {
+      width: 56px; height: 56px; border-radius: var(--radius-sm);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 700; color: #fff;
+      flex-shrink: 0; letter-spacing: 0.5px;
+    }
+    .file-icon.docx { background: #3b82f6; }
+    .file-icon.xlsx { background: #22c55e; }
+    .file-icon.pptx { background: #f97316; }
+    .file-icon.pdf { background: #ef4444; }
+    .file-icon.other { background: #9ca3af; }
+
+    .file-card-info { flex: 1; min-width: 0; }
+    .file-card-name {
+      font-size: 16px; font-weight: 600; color: var(--ink);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      margin-bottom: 6px;
+    }
+    .file-card-meta {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 13px; color: var(--muted);
+    }
+    .file-card-meta .meeting-name {
+      background: #f3f4f6; color: #4b5563;
+      padding: 2px 8px; border-radius: 4px; font-size: 12px;
+    }
+
+    .file-card-open,
+    .file-card-open[disabled] {
+      width: 42px; height: 42px; border-radius: var(--radius-sm);
+      background: var(--accent); border: none; color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; flex-shrink: 0; transition: var(--transition);
+    }
+    .file-card-open:active { background: var(--accent-dark); }
+    .file-card-open svg { width: 18px; height: 18px; }
+
+    .file-card-note-row {
+      padding: 0 14px 12px; display: flex; align-items: center;
+    }
+    .add-note-btn {
+      display: inline-flex; align-items: center; gap: 4px;
+      border: 1px dashed #d1d5db; border-radius: 6px;
+      padding: 4px 10px; font-size: 13px; color: var(--muted);
+      cursor: pointer; transition: var(--transition);
+    }
+    .add-note-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .add-note-btn svg { width: 14px; height: 14px; }
+    .note-text {
+      font-size: 13px; color: #4b5563;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .note-text strong { color: var(--accent); }
+
+    /* ===== Empty State ===== */
+    .empty-state {
+      text-align: center; padding: 48px 20px; color: var(--muted);
+    }
+    .empty-state svg { width: 48px; height: 48px; margin-bottom: 12px; opacity: 0.5; }
+    .empty-state .title { font-size: 15px; font-weight: 600; color: var(--ink); margin-bottom: 6px; }
+    .empty-state .desc { font-size: 13px; }
+
+    /* ===== Page Switching ===== */
+    .home-page, .all-files-page { display: none; }
+    .home-page.active { display: block; }
+    .all-files-page.active { display: flex; flex-direction: column; height: calc(100vh - 48px - 56px); }
+    .drawer-layout {
+      max-width: 540px; margin: 0 auto; width: 100%;
+      display: flex; flex: 1; overflow: hidden;
+    }
+    .drawer {
+      width: 110px; flex-shrink: 0;
+      background: var(--bg2); border-right: 1px solid var(--rule);
+      overflow-y: auto; -webkit-overflow-scrolling: touch;
+      padding: 8px 0;
+    }
+    .drawer-item {
+      padding: 11px 14px; font-size: 13px; color: var(--muted);
+      cursor: pointer; transition: var(--transition);
+      border-left: 3px solid transparent; white-space: nowrap;
+      overflow: hidden; text-overflow: ellipsis;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .drawer-item:active { background: var(--bg); }
+    .drawer-item.active {
+      color: var(--accent); background: var(--accent-soft);
+      border-left-color: var(--accent); font-weight: 700;
+    }
+    .drawer-item .drawer-count {
+      font-size: 10px; background: var(--rule); color: var(--muted);
+      padding: 1px 5px; border-radius: 8px; margin-left: auto;
+    }
+    .drawer-item.active .drawer-count { background: var(--accent); color: #fff; }
+
+    .drawer-content {
+      flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch;
+      padding: 8px 12px 16px;
+    }
+    .drawer-content-header {
+      font-size: 14px; font-weight: 700; color: var(--ink);
+      padding: 4px 4px 10px; display: flex; align-items: center; gap: 6px;
+    }
+    .drawer-content-header .dc-count {
+      font-size: 11px; background: var(--accent-soft); color: var(--accent);
+      padding: 1px 7px; border-radius: 10px; font-weight: 700;
+    }
+    .file-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 12px; background: var(--bg2); border: 1px solid var(--rule);
+      border-radius: var(--radius-sm); margin-bottom: 6px; transition: var(--transition);
+    }
+    .file-row:active { border-color: var(--accent); }
+    .file-row .fr-icon {
+      flex-shrink: 0; width: 34px; height: 34px; border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 9px; font-weight: 700; text-transform: uppercase;
+    }
+    .file-row .fr-info { flex: 1; min-width: 0; }
+    .file-row .fr-name {
+      font-size: 13px; font-weight: 600;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .file-row .fr-meta { font-size: 11px; color: var(--muted); margin-top: 1px; }
+    .file-row .fr-note { font-size: 11px; color: var(--muted); margin-top: 2px; }
+    .file-row .fr-open {
+      flex-shrink: 0; width: 32px; height: 32px; border-radius: 6px;
+      background: var(--accent); display: flex; align-items: center;
+      justify-content: center; border: none; cursor: pointer; transition: var(--transition);
+    }
+    .file-row .fr-open:active { background: var(--accent-dark); }
+    .file-row .fr-open svg { width: 14px; height: 14px; color: #fff; }
+
+    /* ===== Bottom Tab ===== */
+    .bottom-tab {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      background: #fff; border-top: 1px solid var(--rule);
+      z-index: 100; padding-bottom: env(safe-area-inset-bottom, 0px);
+    }
+    .tab-inner {
+      max-width: 540px; margin: 0 auto;
+      display: flex; align-items: center; justify-content: space-around;
+      height: 56px;
+    }
+    .tab-item {
+      flex: 1; height: 100%;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 3px; background: none; border: none;
+      font-size: 11px; color: var(--muted); cursor: pointer;
+      transition: var(--transition);
+    }
+    .tab-item svg { width: 22px; height: 22px; }
+    .tab-item.active { color: var(--accent); }
+    .tab-item:active { opacity: 0.7; }
+
+    /* ===== Note Modal ===== */
+    .note-modal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.45);
+      display: flex; align-items: flex-end; justify-content: center;
+      opacity: 0; pointer-events: none; transition: opacity 0.2s ease;
+      z-index: 200;
+    }
+    .note-modal-overlay.open { opacity: 1; pointer-events: auto; }
+    .note-modal {
+      background: #fff; width: 100%; max-width: 540px;
+      border-radius: var(--radius) var(--radius) 0 0;
+      padding: 16px; transform: translateY(100%);
+      transition: transform 0.25s ease;
+    }
+    .note-modal-overlay.open .note-modal { transform: translateY(0); }
+    .note-modal-header {
+      display: flex; align-items: center; gap: 10px; margin-bottom: 12px;
+    }
+    .nm-file { font-size: 15px; font-weight: 600; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .nm-type {
+      font-size: 11px; font-weight: 700; color: #fff;
+      padding: 3px 8px; border-radius: 4px;
+    }
+    .note-modal-body textarea {
+      width: 100%; min-height: 110px; resize: none;
+      border: 1px solid var(--rule); border-radius: var(--radius-sm);
+      padding: 12px; font-size: 15px; font-family: inherit;
+      outline: none;
+    }
+    .note-modal-body textarea:focus { border-color: var(--accent); }
+    .note-modal-footer {
+      display: flex; justify-content: flex-end; gap: 10px; margin-top: 14px;
+    }
+    .note-btn {
+      padding: 10px 20px; border-radius: var(--radius-sm); font-size: 14px;
+      border: none; cursor: pointer; font-weight: 600; transition: var(--transition);
+    }
+    .note-btn-save { background: var(--accent); color: #fff; }
+    .note-btn-save:active { background: var(--accent-dark); }
+    .note-btn-cancel { background: #f3f4f6; color: var(--ink); }
+    .note-btn-delete { background: #fee2e2; color: #b91c1c; }
+
+    @media (min-width: 640px) {
+      .note-modal-overlay { align-items: center; }
+      .note-modal { border-radius: var(--radius); transform: translateY(20px) scale(0.96); }
+      .note-modal-overlay.open .note-modal { transform: translateY(0) scale(1); }
+    }
+  </style>
+</head>
+<body>
+  <div class="home-page active" id="homePage">
+    <div class="app-bar">
+      <div class="app-bar-inner">
+        <div class="app-bar-brand">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          <span>会议材料管理系统</span>
+        </div>
+        <button class="app-bar-action" onclick="loadData()" title="刷新">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="hero">
+      <div class="hero-inner">
+        <div class="hero-top">
+          <div>
+            <div class="hero-title">会议材料库</div>
+            <div class="hero-date" id="todayDate">7月14日 周二</div>
+          </div>
+          <button class="hero-refresh" onclick="loadData()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
+            <span>刷新</span>
+          </button>
+        </div>
+        <div class="search-box">
+          <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+          <input type="text" class="search-input" id="searchInput" placeholder="搜索文件名、会议名称、备注内容...">
+          <button class="search-clear" id="searchClear">×</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="filter-section">
+      <div class="filter-row-outer">
+        <div class="filter-label">会议类型</div>
+        <div class="filter-row-right">
+          <div class="filter-row-inner" id="typeRow"></div>
+          <button class="filter-expand-btn" onclick="toggleFilterRow(this, 'typeRow')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="filter-row-outer">
+        <div class="filter-label">部门</div>
+        <div class="filter-row-right">
+          <div class="filter-row-inner" id="deptRow"></div>
+          <button class="filter-expand-btn" onclick="toggleFilterRow(this, 'deptRow')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="filter-row-outer">
+        <div class="filter-label">标签</div>
+        <div class="filter-row-right">
+          <div class="filter-row-inner" id="tagRow"></div>
+          <button class="filter-expand-btn" onclick="toggleFilterRow(this, 'tagRow')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="filter-row-outer">
+        <div class="filter-label">提交人</div>
+        <div class="filter-row-right">
+          <div class="filter-row-inner" id="uploaderRow"></div>
+          <button class="filter-expand-btn" onclick="toggleFilterRow(this, 'uploaderRow')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="content">
+      <div class="section-title">
+        <svg id="sectionTitleIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+        <span id="sectionTitleText">最近文件</span>
+        <span class="count" id="recentCount">0</span>
+      </div>
+      <div class="file-card-list" id="recentList"></div>
+    </div>
+  </div>
+
+  <div class="all-files-page" id="allFilesPage">
+    <div class="drawer-layout">
+      <div class="drawer" id="drawer"></div>
+      <div class="drawer-content" id="drawerContent"></div>
+    </div>
+  </div>
+
+  <div class="note-modal-overlay" id="noteModalOverlay" onclick="if(event.target===this)closeNoteModal()">
+    <div class="note-modal">
+      <div class="note-modal-header">
+        <span class="nm-file" id="noteModalFile"></span>
+        <span class="nm-type" id="noteModalType"></span>
+      </div>
+      <div class="note-modal-body">
+        <textarea id="noteModalText" placeholder="添加备注，方便后续快速检索..."></textarea>
+      </div>
+      <div class="note-modal-footer">
+        <button class="note-btn note-btn-delete" id="noteDeleteBtn" style="display:none;margin-right:auto;" onclick="deleteNote()">删除</button>
+        <button class="note-btn note-btn-cancel" onclick="closeNoteModal()">取消</button>
+        <button class="note-btn note-btn-save" onclick="saveNote()">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="bottom-tab">
+    <div class="tab-inner">
+      <button class="tab-item active" onclick="switchPage('homePage', this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0a1 1 0 01-1-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 01-1 1h-2z"/></svg>
+        <span>首页</span>
+      </button>
+      <button class="tab-item" onclick="switchPage('allFilesPage', this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
+        <span>所有文件</span>
+      </button>
+    </div>
+  </div>
+
+  <script>
+    const SUPABASE_URL = 'https://kcothoexsnhvrlzkzttl.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_35ODEWDAb0cNftVByeIxKg_o-4W9rq7';
+    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    var allFiles = [];
+    var leaderNotes = {};
+    var typeLabelMap = {};
+
+    var currentTypeFilter = 'all';
+    var currentDeptFilter = 'all';
+    var currentTagFilter = 'all';
+    var currentUploaderFilter = 'all';
+    var currentSearch = '';
+    var currentDrawerCategory = 'type';
+    var currentDrawerItem = '';
+
+    var currentNoteFileId = '';
+
+    function esc(s) { return String(s == null ? '' : s).replace(/'/g, "\\'").replace(/"/g, '&quot;'); }
+
+    function formatDate(dateVal) {
+      if (!dateVal) return '';
+      var s = String(dateVal);
+      return s.split('T')[0].split(' ')[0];
+    }
+
+    function getFileExtension(filename) {
+      var ext = (filename || '').split('.').pop().toLowerCase();
+      if (['docx', 'doc'].includes(ext)) return 'docx';
+      if (['xlsx', 'xls'].includes(ext)) return 'xlsx';
+      if (['pptx', 'ppt'].includes(ext)) return 'pptx';
+      if (ext === 'pdf') return 'pdf';
+      return 'other';
+    }
+
+    async function loadData() {
+      try {
+        var [materialsResult, notesResult, typesResult] = await Promise.all([
+          supabaseClient.from('materials').select('*').order('uploaded_at', { ascending: false }),
+          supabaseClient.from('leader_notes').select('*'),
+          supabaseClient.from('meeting_types').select('*').order('sort', { ascending: true })
+        ]);
+
+        if (materialsResult.error) {
+          console.error('Load materials error:', materialsResult.error);
+          document.getElementById('recentList').innerHTML = '<div class="empty-state"><div class="title">加载失败</div><div class="desc">请检查网络连接或稍后重试</div></div>';
+          return;
+        }
+
+        typeLabelMap = {};
+        (typesResult.data || []).forEach(function(t) { typeLabelMap[t.key] = t.label; });
+
+        leaderNotes = {};
+        (notesResult.data || []).forEach(function(ln) { leaderNotes[ln.material_id] = ln.content; });
+
+        allFiles = (materialsResult.data || []).map(function(m) {
+          return {
+            id: m.id,
+            name: m.file_name || '未命名文件',
+            type: (m.file_type && ['docx', 'xlsx', 'pptx', 'pdf'].includes(m.file_type.toLowerCase())) ? m.file_type.toLowerCase() : getFileExtension(m.file_name),
+            uploader: m.uploader || '未知',
+            time: formatDate(m.meeting_date || m.uploaded_at),
+            meetingTitle: m.meeting_title || '',
+            meetingType: m.meeting_type || '',
+            meetingTypeName: typeLabelMap[m.meeting_type] || m.meeting_type || '',
+            meetingDate: formatDate(m.meeting_date),
+            meetingDepartment: m.meeting_department || '',
+            meetingTags: m.tags ? m.tags.split(',').map(function(t) { return t.trim(); }).filter(Boolean) : [],
+            wpsUrl: m.wps_url || '',
+            leader_note: leaderNotes[m.id] || ''
+          };
+        });
+
+        console.log('Loaded', allFiles.length, 'files');
+        renderFilterTags();
+        renderRecentFiles();
+        renderDrawer();
+      } catch (err) {
+        console.error('Network error:', err);
+        document.getElementById('recentList').innerHTML = '<div class="empty-state"><div class="title">网络错误</div><div class="desc">无法连接到服务器</div></div>';
+      }
+    }
+
+    function renderFilterTags() {
+      var types = ['all'];
+      var depts = ['all'];
+      var tags = ['all'];
+      var uploaders = ['all'];
+
+      allFiles.forEach(function(f) {
+        if (f.meetingType && !types.includes(f.meetingType)) types.push(f.meetingType);
+        if (f.meetingDepartment && !depts.includes(f.meetingDepartment)) depts.push(f.meetingDepartment);
+        f.meetingTags.forEach(function(t) { if (!tags.includes(t)) tags.push(t); });
+        if (f.uploader && !uploaders.includes(f.uploader)) uploaders.push(f.uploader);
+      });
+
+      renderFilterRow('typeRow', types, 'type', currentTypeFilter, typeLabelMap);
+      renderFilterRow('deptRow', depts, 'dept', currentDeptFilter);
+      renderFilterRow('tagRow', tags, 'tag', currentTagFilter);
+      renderFilterRow('uploaderRow', uploaders, 'uploader', currentUploaderFilter);
+    }
+
+    function renderFilterRow(rowId, items, dataAttr, currentValue, labelMap) {
+      labelMap = labelMap || {};
+      var row = document.getElementById(rowId);
+      var html = '';
+      items.forEach(function(item) {
+        var isActive = item === currentValue;
+        var label = item === 'all' ? '全部' : (labelMap[item] || item);
+        html += '<div class="filter-tag' + (isActive ? ' active' : '') + '" data-' + dataAttr + '="' + esc(item) + '">' + label + '</div>';
+      });
+      row.innerHTML = html;
+    }
+
+    function getFilteredFiles() {
+      return allFiles.filter(function(f) {
+        if (currentTypeFilter !== 'all' && f.meetingType !== currentTypeFilter) return false;
+        if (currentDeptFilter !== 'all' && f.meetingDepartment !== currentDeptFilter) return false;
+        if (currentTagFilter !== 'all' && !f.meetingTags.includes(currentTagFilter)) return false;
+        if (currentUploaderFilter !== 'all' && f.uploader !== currentUploaderFilter) return false;
+        if (currentSearch) {
+          var q = currentSearch.toLowerCase();
+          var str = (f.name + ' ' + f.meetingTitle + ' ' + f.meetingDepartment + ' ' + f.meetingTags.join(' ') + ' ' + (leaderNotes[f.id] || '')).toLowerCase();
+          return str.indexOf(q) !== -1;
+        }
+        return true;
+      }).sort(function(a, b) { return b.time.localeCompare(a.time); });
+    }
+
+    function renderRecentFiles() {
+      var isSearching = currentSearch.length > 0;
+      var isFiltering = currentTypeFilter !== 'all' || currentDeptFilter !== 'all' || currentTagFilter !== 'all' || currentUploaderFilter !== 'all';
+
+      var titleText = document.getElementById('sectionTitleText');
+      var titleIcon = document.getElementById('sectionTitleIcon');
+
+      if (isSearching) {
+        titleText.textContent = '搜索结果';
+        titleIcon.innerHTML = '<circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>';
+      } else if (isFiltering) {
+        titleText.textContent = '筛选结果';
+        titleIcon.innerHTML = '<path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/>';
+      } else {
+        titleText.textContent = '最近文件';
+        titleIcon.innerHTML = '<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>';
+      }
+
+      var files = getFilteredFiles();
+      if (!isSearching && !isFiltering) files = files.slice(0, 10);
+
+      document.getElementById('recentCount').textContent = files.length;
+      var c = document.getElementById('recentList');
+
+      if (files.length === 0) {
+        c.innerHTML = '<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg><div class="title">没有找到匹配的文件</div><div class="desc">试试更换筛选条件或搜索词</div></div>';
+        return;
+      }
+
+      var h = '';
+      files.forEach(function(f) {
+        var note = leaderNotes[f.id] || '';
+        var noteHtml;
+        if (note) {
+          noteHtml = '<div class="file-card-note-row" onclick="openNoteModal(\'' + esc(f.id) + '\',\'' + esc(f.name) + '\',\'' + f.type + '\')"><div class="note-text"><svg style="width:12px;height:12px;flex-shrink:0;color:#d97706;vertical-align:middle;margin-right:2px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> <strong>备注：</strong>' + note + '</div></div>';
+        } else {
+          noteHtml = '<div class="file-card-note-row"><div class="add-note-btn" onclick="openNoteModal(\'' + esc(f.id) + '\',\'' + esc(f.name) + '\',\'' + f.type + '\')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> 添加备注</div></div>';
+        }
+
+        var openBtnHtml = f.wpsUrl
+          ? '<button class="file-card-open" title="在WPS中打开" onclick="openWpsLink(\'' + esc(f.wpsUrl) + '\')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3"/></svg></button>'
+          : '<button class="file-card-open" style="background:#9ca3af;" title="暂无链接" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3"/></svg></button>';
+
+        h += '<div class="file-card"><div class="file-card-inner">' +
+          '<div class="file-icon ' + f.type + '">' + f.type.toUpperCase() + '</div>' +
+          '<div class="file-card-info"><div class="file-card-name">' + f.name + '</div>' +
+          '<div class="file-card-meta"><span class="meeting-name">' + f.meetingTypeName + '</span><span>' + f.time + '</span></div></div>' +
+          openBtnHtml +
+          '</div>' + noteHtml + '</div>';
+      });
+      c.innerHTML = h;
+    }
+
+    var drawerCats = [
+      { key: 'type', label: '按会议类型' },
+      { key: 'department', label: '按部门' },
+      { key: 'tag', label: '按标签' }
+    ];
+
+    function getDrawerItems(cat) {
+      var map = {};
+      if (cat === 'type') {
+        allFiles.forEach(function(f) {
+          var key = f.meetingType || '未分类';
+          var label = f.meetingTypeName || '未分类';
+          if (!map[key]) map[key] = { key: key, label: label, files: [] };
+          map[key].files.push(f);
+        });
+      } else if (cat === 'department') {
+        allFiles.forEach(function(f) {
+          var key = f.meetingDepartment || '未分类';
+          if (!map[key]) map[key] = { key: key, label: key, files: [] };
+          map[key].files.push(f);
+        });
+      } else {
+        allFiles.forEach(function(f) {
+          f.meetingTags.forEach(function(t) {
+            if (!t) return;
+            if (!map[t]) map[t] = { key: t, label: t, files: [] };
+            map[t].files.push(f);
+          });
+        });
+      }
+      return Object.values(map);
+    }
+
+    function renderDrawer() {
+      var catHtml = '';
+      drawerCats.forEach(function(c) {
+        catHtml += '<div class="drawer-item' + (currentDrawerCategory === c.key ? ' active' : '') + '" onclick="switchDrawerCategory(\'' + c.key + '\')">' +
+          '<svg style="width:14px;height:14px;flex-shrink:0;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h7"/></svg>' +
+          '<span style="font-size:12px;">' + c.label + '</span></div>';
+      });
+
+      var items = getDrawerItems(currentDrawerCategory);
+      var first = items.length > 0 ? items[0].key : '';
+      if (!currentDrawerItem || !items.some(function(i) { return i.key === currentDrawerItem; })) currentDrawerItem = first;
+
+      var itemHtml = '<div style="border-top:1px solid var(--rule);margin:4px 0;"></div>';
+      items.forEach(function(item) {
+        itemHtml += '<div class="drawer-item' + (currentDrawerItem === item.key ? ' active' : '') + '" onclick="selectDrawerItem(\'' + item.key + '\')">' +
+          '<span>' + item.label + '</span><span class="drawer-count">' + item.files.length + '</span></div>';
+      });
+
+      document.getElementById('drawer').innerHTML = catHtml + itemHtml;
+      renderDrawerContent();
+    }
+
+    function switchDrawerCategory(cat) { currentDrawerCategory = cat; currentDrawerItem = ''; renderDrawer(); }
+    function selectDrawerItem(key) { currentDrawerItem = key; renderDrawer(); }
+
+    function renderDrawerContent() {
+      var items = getDrawerItems(currentDrawerCategory);
+      var cur = items.find(function(i) { return i.key === currentDrawerItem; });
+      var c = document.getElementById('drawerContent');
+
+      if (!cur || cur.files.length === 0) {
+        c.innerHTML = '<div class="drawer-content-header">暂无文件</div><div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6M15 13H9"/></svg><div class="title">该分类下暂无文件</div></div>';
+        return;
+      }
+
+      var sorted = cur.files.slice().sort(function(a, b) { return b.time.localeCompare(a.time); });
+      var h = '<div class="drawer-content-header">' + cur.label + '<span class="dc-count">' + sorted.length + ' 份文件</span></div>';
+
+      sorted.forEach(function(f) {
+        var note = leaderNotes[f.id] || '';
+        var noteRow = note
+          ? '<div class="fr-note" onclick="openNoteModal(\'' + esc(f.id) + '\',\'' + esc(f.name) + '\',\'' + f.type + '\')">备注：' + note + '</div>'
+          : '<div class="add-note-btn" style="margin-top:2px;" onclick="openNoteModal(\'' + esc(f.id) + '\',\'' + esc(f.name) + '\',\'' + f.type + '\')">+ 备注</div>';
+
+        var openBtnHtml = f.wpsUrl
+          ? '<button class="fr-open" title="在WPS中打开" onclick="openWpsLink(\'' + esc(f.wpsUrl) + '\')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17l9.2-9.2M17 17V7H7"/></svg></button>'
+          : '<div class="fr-open" style="background:#9ca3af;" title="暂无链接"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17l9.2-9.2M17 17V7H7"/></svg></div>';
+
+        h += '<div class="file-row">' +
+          '<div class="fr-icon file-icon ' + f.type + '">' + f.type.toUpperCase() + '</div>' +
+          '<div class="fr-info"><div class="fr-name">' + f.name + '</div>' +
+          '<div class="fr-meta">' + f.uploader + ' · ' + f.time + '</div>' + noteRow + '</div>' +
+          openBtnHtml + '</div>';
+      });
+
+      c.innerHTML = h;
+    }
+
+    function openNoteModal(id, name, type) {
+      currentNoteFileId = id;
+      document.getElementById('noteModalFile').textContent = name;
+      var span = document.getElementById('noteModalType');
+      span.textContent = type.toUpperCase();
+      var colors = { docx: '#2563eb', xlsx: '#16a34a', pptx: '#d97706', pdf: '#dc2626', other: '#6b7280' };
+      span.style.background = colors[type] || '#6b7280';
+      document.getElementById('noteModalText').value = leaderNotes[id] || '';
+      document.getElementById('noteDeleteBtn').style.display = leaderNotes[id] ? 'block' : 'none';
+      document.getElementById('noteModalOverlay').classList.add('open');
+      setTimeout(function() { document.getElementById('noteModalText').focus(); }, 200);
+    }
+
+    function closeNoteModal() { document.getElementById('noteModalOverlay').classList.remove('open'); }
+
+    async function saveNote() {
+      var text = document.getElementById('noteModalText').value.trim();
+      var id = currentNoteFileId;
+
+      try {
+        if (text) {
+          var existing = leaderNotes[id];
+          if (existing) {
+            await supabaseClient.from('leader_notes').update({ content: text }).eq('material_id', id);
+          } else {
+            await supabaseClient.from('leader_notes').insert({ material_id: id, content: text });
+          }
+          leaderNotes[id] = text;
+        } else {
+          if (leaderNotes[id]) {
+            await supabaseClient.from('leader_notes').delete().eq('material_id', id);
+            delete leaderNotes[id];
+          }
+        }
+        closeNoteModal();
+        renderRecentFiles();
+        renderDrawerContent();
+      } catch (err) {
+        console.error('Save note error:', err);
+        alert('保存备注失败，请重试');
+      }
+    }
+
+    async function deleteNote() {
+      var id = currentNoteFileId;
+      try {
+        await supabaseClient.from('leader_notes').delete().eq('material_id', id);
+        delete leaderNotes[id];
+        closeNoteModal();
+        renderRecentFiles();
+        renderDrawerContent();
+      } catch (err) {
+        console.error('Delete note error:', err);
+        alert('删除备注失败，请重试');
+      }
+    }
+
+    document.getElementById('typeRow').addEventListener('click', function(e) {
+      var t = e.target.closest('.filter-tag'); if (!t || !t.dataset.type) return;
+      currentTypeFilter = t.dataset.type;
+      this.querySelectorAll('.filter-tag').forEach(function(x) { x.classList.remove('active'); });
+      t.classList.add('active');
+      renderRecentFiles();
+    });
+
+    document.getElementById('deptRow').addEventListener('click', function(e) {
+      var t = e.target.closest('.filter-tag'); if (!t || !t.dataset.dept) return;
+      currentDeptFilter = t.dataset.dept;
+      this.querySelectorAll('.filter-tag').forEach(function(x) { x.classList.remove('active'); });
+      t.classList.add('active');
+      renderRecentFiles();
+    });
+
+    document.getElementById('tagRow').addEventListener('click', function(e) {
+      var t = e.target.closest('.filter-tag'); if (!t || !t.dataset.tag) return;
+      currentTagFilter = t.dataset.tag;
+      this.querySelectorAll('.filter-tag').forEach(function(x) { x.classList.remove('active'); });
+      t.classList.add('active');
+      renderRecentFiles();
+    });
+
+    document.getElementById('uploaderRow').addEventListener('click', function(e) {
+      var t = e.target.closest('.filter-tag'); if (!t || !t.dataset.uploader) return;
+      currentUploaderFilter = t.dataset.uploader;
+      this.querySelectorAll('.filter-tag').forEach(function(x) { x.classList.remove('active'); });
+      t.classList.add('active');
+      renderRecentFiles();
+    });
+
+    var searchInput = document.getElementById('searchInput');
+    var searchClear = document.getElementById('searchClear');
+    searchInput.addEventListener('input', function() {
+      currentSearch = this.value.trim();
+      searchClear.classList.toggle('visible', this.value.length > 0);
+      renderRecentFiles();
+    });
+    searchClear.addEventListener('click', function() {
+      searchInput.value = ''; currentSearch = '';
+      this.classList.remove('visible'); searchInput.focus(); renderRecentFiles();
+    });
+
+    function toggleFilterRow(btn, rowId) {
+      var row = document.getElementById(rowId);
+      var isExpanded = row.classList.toggle('expanded');
+      btn.classList.toggle('expanded', isExpanded);
+    }
+
+    function openWpsLink(url) {
+      window.open(url, '_blank', 'noreferrer');
+    }
+
+    function switchPage(pageId, btn) {
+      document.querySelectorAll('.home-page, .all-files-page').forEach(function(p) { p.classList.remove('active'); });
+      document.getElementById(pageId).classList.add('active');
+      document.querySelectorAll('.tab-item').forEach(function(t) { t.classList.remove('active'); });
+      btn.classList.add('active');
+      window.scrollTo(0, 0);
+      if (pageId === 'allFilesPage') renderDrawer();
+    }
+
+    (function() {
+      var now = new Date();
+      document.getElementById('todayDate').textContent =
+        (now.getMonth() + 1) + '月' + now.getDate() + '日 周' + '日一二三四五六'[now.getDay()];
+      loadData();
+    })();
+  </script>
+</body>
+</html>

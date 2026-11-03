@@ -1,0 +1,5 @@
+logs/
+backup/
+node_modules/
+.wrangler/
+.DS_Store

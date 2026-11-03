@@ -1,0 +1,4 @@
+[{"id":5,"key":"demand","label":"需求评审","sort":5}, 
+ {"id":4,"key":"appraisal","label":"述职","sort":4}, 
+ {"id":3,"key":"project","label":"项目","sort":3}, 
+ {"id":6,"key":"others","label":"其它","sort":4}]
