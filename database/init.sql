@@ -67,18 +67,29 @@ ALTER TABLE departments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE uploaders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE tags ENABLE ROW LEVEL SECURITY;
 
+-- 所有人可读，只有 Supabase Auth 登录用户可写（管理端登录后为 authenticated）
 DROP POLICY IF EXISTS "public_all_materials" ON materials;
-CREATE POLICY "public_all_materials" ON materials FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
 DROP POLICY IF EXISTS "public_all_leader_notes" ON leader_notes;
-CREATE POLICY "public_all_leader_notes" ON leader_notes FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
 DROP POLICY IF EXISTS "public_all_meeting_types" ON meeting_types;
-CREATE POLICY "public_all_meeting_types" ON meeting_types FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
 DROP POLICY IF EXISTS "public_all_departments" ON departments;
-CREATE POLICY "public_all_departments" ON departments FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
 DROP POLICY IF EXISTS "public_all_uploaders" ON uploaders;
-CREATE POLICY "public_all_uploaders" ON uploaders FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
 DROP POLICY IF EXISTS "public_all_tags" ON tags;
-CREATE POLICY "public_all_tags" ON tags FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+
+CREATE POLICY "public_read_materials" ON materials FOR SELECT TO anon, authenticated USING (true);
+CREATE POLICY "public_read_leader_notes" ON leader_notes FOR SELECT TO anon, authenticated USING (true);
+CREATE POLICY "public_read_meeting_types" ON meeting_types FOR SELECT TO anon, authenticated USING (true);
+CREATE POLICY "public_read_departments" ON departments FOR SELECT TO anon, authenticated USING (true);
+CREATE POLICY "public_read_uploaders" ON uploaders FOR SELECT TO anon, authenticated USING (true);
+CREATE POLICY "public_read_tags" ON tags FOR SELECT TO anon, authenticated USING (true);
+
+CREATE POLICY "auth_write_materials" ON materials FOR INSERT TO authenticated WITH CHECK (true);
+CREATE POLICY "auth_update_materials" ON materials FOR UPDATE TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "auth_delete_materials" ON materials FOR DELETE TO authenticated USING (true);
+CREATE POLICY "auth_write_leader_notes" ON leader_notes FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "auth_write_meeting_types" ON meeting_types FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "auth_write_departments" ON departments FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "auth_write_uploaders" ON uploaders FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "auth_write_tags" ON tags FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
 -- ========== 4. 字典初始数据（可在管理端增删改） ==========
 INSERT INTO meeting_types (key, label, sort) VALUES

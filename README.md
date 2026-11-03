@@ -40,9 +40,10 @@ meeting-materials-release/
 
 ## 三、首次接手（3 步）
 
-1. **数据库**：若沿用现有 Supabase 项目，无需任何操作；若换新项目，到 Supabase → SQL Editor 执行 `database/init.sql`，然后把 `public/*.html` 里的 `SUPABASE_URL`、`SUPABASE_KEY` 换成新项目的值（`index.html` 约第 493 行、`admin.html` 约第 479 行）。
-2. **本地预览**：直接用浏览器打开 `public/index.html` 即可，不需要 Node.js、不需要起服务器。
-3. **发布**：见下一节。
+1. **数据库**：若沿用现有 Supabase 项目，无需任何操作；若换新项目，到 Supabase → SQL Editor 依次执行 `database/init.sql`（建表 + RLS + 字典）和 `database/auth-hardening.sql`（收紧写权限），然后把 `public/*.html` 里的 `SUPABASE_URL`、`SUPABASE_KEY` 换成新项目的值（`index.html` 约第 493 行、`admin.html` 约第 479 行）。
+2. **管理员账号**：Supabase 控制台 → Authentication → Users → Add user（填邮箱密码、勾选 Auto Confirm User）。管理端 `admin.html` 需要登录后才能增删改；用户端匿名只读。
+3. **本地预览**：直接用浏览器打开 `public/index.html` 即可，不需要 Node.js、不需要起服务器。
+4. **发布**：见下一节。
 
 ## 四、发布更新（Cloudflare Pages）
 
@@ -84,6 +85,7 @@ bash scripts/backup.sh        # 输出到 ./backup/<时间戳>/*.json
 - 备注存 `leader_notes` 表（`material_id` + `content`），不存 `materials` 表。
 - 会议类型以 `meeting_types.key` 入库，界面显示 `label`。
 - WPS 分享链接必须用 `window.open(url, '_blank', 'noreferrer')` 打开，否则会被 WPS 的 referer 白名单拦截（`referer_host not match whitelist`）。
+- 权限模型：匿名（anon）只读；只有 Supabase Auth 登录用户（authenticated）可写。由 `database/auth-hardening.sql` 中的 RLS 策略保证，管理端登录逻辑在 `admin.html` 底部 Auth 区块。
 - 用户端底部 Tab 只有「首页 / 所有文件」，没有「管理」；两页在同一文档内互斥切换，底部栏固定。
 - 详细说明见 `docs/维护手册.md`。
 

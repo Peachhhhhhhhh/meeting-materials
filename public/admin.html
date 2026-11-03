@@ -195,12 +195,52 @@
       animation: toastIn 0.3s ease;
     }
     @keyframes toastIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* ===== 登录门禁 ===== */
+    .login-overlay {
+      position: fixed; inset: 0; z-index: 1000;
+      background: var(--bg); display: flex;
+      align-items: center; justify-content: center;
+    }
+    .login-overlay.hidden { display: none; }
+    .login-card {
+      background: var(--bg2); border: 1px solid var(--rule); border-radius: 12px;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.1); padding: 36px 32px; width: 360px; max-width: 92vw;
+    }
+    .login-card h2 { font-size: 18px; font-weight: 700; text-align: center; }
+    .login-card .sub { font-size: 12px; color: var(--muted); text-align: center; margin: 6px 0 24px; }
+    .login-card .form-group { margin-bottom: 14px; }
+    .login-card .form-control { padding: 10px 12px; font-size: 14px; }
+    .login-card .login-btn { width: 100%; padding: 10px; font-size: 14px; justify-content: center; }
+    .login-error {
+      display: none; background: var(--danger-soft); color: var(--danger);
+      font-size: 12px; padding: 8px 10px; border-radius: var(--radius); margin-bottom: 14px;
+    }
+    .login-error.show { display: block; }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 
-<div class="layout">
+<!-- 登录门禁：未登录时覆盖整个后台 -->
+<div class="login-overlay" id="loginOverlay">
+  <div class="login-card">
+    <h2>材料管理后台</h2>
+    <div class="sub">请使用管理员账号登录</div>
+    <div class="login-error" id="loginError"></div>
+    <div class="form-group">
+      <label>邮箱</label>
+      <input type="email" class="form-control" id="loginEmail" autocomplete="username" placeholder="admin@example.com">
+    </div>
+    <div class="form-group">
+      <label>密码</label>
+      <input type="password" class="form-control" id="loginPassword" autocomplete="current-password" placeholder="请输入密码" onkeydown="if(event.key==='Enter')login()">
+    </div>
+    <button class="btn btn-primary login-btn" id="loginBtn" onclick="login()">登 录</button>
+  </div>
+</div>
+
+<div class="layout" id="adminLayout" style="display:none;">
   <div class="sidebar">
     <div class="sidebar-brand">
       <h1>材料管理后台</h1>
@@ -238,6 +278,10 @@
         <button class="btn btn-ghost btn-sm" onclick="exportData()">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           导出
+        </button>
+        <button class="btn btn-ghost btn-sm" onclick="logout()" title="退出登录">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          退出
         </button>
       </div>
     </div>
@@ -985,9 +1029,53 @@ function exportData() {
   });
 }
 
+// ===== Auth（登录门禁） =====
+function showLogin() {
+  document.getElementById('loginOverlay').classList.remove('hidden');
+  document.getElementById('adminLayout').style.display = 'none';
+}
+function showApp() {
+  document.getElementById('loginOverlay').classList.add('hidden');
+  document.getElementById('adminLayout').style.display = 'flex';
+}
+function login() {
+  var email = document.getElementById('loginEmail').value.trim();
+  var pwd = document.getElementById('loginPassword').value;
+  var errBox = document.getElementById('loginError');
+  var btn = document.getElementById('loginBtn');
+  if (!email || !pwd) {
+    errBox.textContent = '请输入邮箱和密码';
+    errBox.classList.add('show');
+    return;
+  }
+  btn.disabled = true; btn.textContent = '登录中...';
+  supabaseClient.auth.signInWithPassword({ email: email, password: pwd }).then(function(res) {
+    btn.disabled = false; btn.textContent = '登 录';
+    if (res.error) {
+      errBox.textContent = res.error.message === 'Invalid login credentials'
+        ? '邮箱或密码错误'
+        : '登录失败：' + res.error.message;
+      errBox.classList.add('show');
+      return;
+    }
+    errBox.classList.remove('show');
+    document.getElementById('loginPassword').value = '';
+    showApp();
+    loadReferenceData().then(loadMaterials);
+  });
+}
+function logout() {
+  supabaseClient.auth.signOut().then(showLogin);
+}
+
 // ===== Init =====
-loadReferenceData().then(function() {
-  loadMaterials();
+supabaseClient.auth.getSession().then(function(res) {
+  if (res.data && res.data.session) {
+    showApp();
+    loadReferenceData().then(function() { loadMaterials(); });
+  } else {
+    showLogin();
+  }
 });
 </script>
 </body>
