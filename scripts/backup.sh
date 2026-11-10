@@ -9,7 +9,7 @@ SUPABASE_KEY="${SUPABASE_KEY:-sb_publishable_35ODEWDAb0cNftVByeIxKg_o-4W9rq7}"
 OUT="backup/$(date +%Y%m%d-%H%M%S)"
 mkdir -p "$OUT"
 
-for t in materials leader_notes meeting_types departments uploaders tags; do
+for t in materials leader_notes meeting_types departments uploaders tags file_types; do
   printf "导出 %-15s" "$t"
   curl -sS "${SUPABASE_URL}/rest/v1/${t}?select=*" \
     -H "apikey: ${SUPABASE_KEY}" \

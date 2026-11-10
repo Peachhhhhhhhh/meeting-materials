@@ -264,6 +264,10 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
         会议类型
       </div>
+      <div class="nav-item" onclick="switchPage('filetypes', this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg>
+        文件类型
+      </div>
       <div class="nav-item" onclick="switchPage('uploaders', this)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
         提交人管理
@@ -378,6 +382,23 @@
         </div>
       </div>
 
+      <!-- Page: File Types -->
+      <div class="page" id="page-filetypes">
+        <div class="table-wrap">
+          <div class="table-bar">
+            <div class="table-bar-left"><span>文件类型列表</span></div>
+            <button class="btn btn-primary btn-sm" onclick="openFileTypeModal()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              新建文件类型
+            </button>
+          </div>
+          <table>
+            <thead><tr><th>类型标识</th><th>显示名称</th><th>排序</th><th style="width:120px">操作</th></tr></thead>
+            <tbody id="filetypesBody"></tbody>
+          </table>
+        </div>
+      </div>
+
       <!-- Page: Uploaders -->
       <div class="page" id="page-uploaders">
         <div class="table-wrap">
@@ -439,10 +460,6 @@
           <label>文件类型 <span class="required">*</span></label>
           <select class="form-control" id="f_filetype">
             <option value="">请选择</option>
-            <option value="docx">Word (.docx)</option>
-            <option value="xlsx">Excel (.xlsx)</option>
-            <option value="pptx">PPT (.pptx)</option>
-            <option value="pdf">PDF (.pdf)</option>
           </select>
         </div>
         <div class="form-group">
@@ -554,29 +571,88 @@ function loadReferenceData() {
     supabaseClient.from('meeting_types').select('*').order('sort', { ascending: true }),
     supabaseClient.from('departments').select('*').order('sort', { ascending: true }),
     supabaseClient.from('uploaders').select('*'),
-    supabaseClient.from('tags').select('*').order('sort', { ascending: true })
+    supabaseClient.from('tags').select('*').order('sort', { ascending: true }),
+    supabaseClient.from('file_types').select('*').order('sort', { ascending: true })
   ]).then(function(results) {
     cacheData.types = results[0].data || [];
     cacheData.departments = results[1].data || [];
     cacheData.uploaders = results[2].data || [];
     cacheData.tags = results[3].data || [];
-    
+    cacheData.fileTypes = results[4].data || [];
+
     // Populate selects
     populateTypeSelect();
     populateDeptSelect();
     populateUploaderSelect();
+    populateFileTypeSelect();
     renderTagPicker([]);
-    
+
     // Render other pages
     renderTypes();
     renderDepts();
     renderUploaders();
     renderTags();
-    
+    renderFileTypes();
+
     // Update stats
     document.getElementById('statTypes').textContent = cacheData.types.length;
     document.getElementById('statTags').textContent = cacheData.tags.length;
   });
+}
+
+function populateFileTypeSelect() {
+  var sel = document.getElementById('f_filetype');
+  sel.innerHTML = '<option value="">请选择</option>';
+  cacheData.fileTypes.forEach(function(ft) {
+    sel.innerHTML += '<option value="' + ft.key + '">' + ft.label + '</option>';
+  });
+}
+
+// ===== File Types =====
+function renderFileTypes() {
+  var html = '';
+  cacheData.fileTypes.forEach(function(ft) {
+    html += '<tr><td><code style="background:var(--bg);padding:2px 6px;border-radius:4px;font-size:12px;">' + ft.key + '</code></td><td>' + ft.label + '</td><td>' + ft.sort + '</td><td><div class="td-actions"><button class="btn btn-ghost btn-sm" onclick="editFileType(' + ft.id + ')">编辑</button><button class="btn btn-danger btn-sm" onclick="deleteFileType(' + ft.id + ')">删除</button></div></td></tr>';
+  });
+  document.getElementById('filetypesBody').innerHTML = html;
+}
+
+var editingFileTypeId = null;
+function openFileTypeModal(id) {
+  editingFileTypeId = id || null;
+  var ft = id ? cacheData.fileTypes.find(function(x) { return x.id === id; }) : { key: '', label: '', sort: cacheData.fileTypes.length + 1 };
+  document.getElementById('simpleModalTitle').textContent = id ? '编辑文件类型' : '新建文件类型';
+  document.getElementById('simpleModalBody').innerHTML =
+    '<div class="form-group"><label>类型标识 <span class="required">*</span></label><input type="text" class="form-control" id="s_key" value="' + ft.key + '" placeholder="英文小写，如 docx、report" ' + (id ? 'disabled' : '') + '></div>' +
+    '<div class="form-group"><label>显示名称 <span class="required">*</span></label><input type="text" class="form-control" id="s_label" value="' + ft.label + '" placeholder="如：Word 文档"></div>' +
+    '<div class="form-group"><label>排序</label><input type="number" class="form-control" id="s_sort" value="' + ft.sort + '"></div>';
+  document.getElementById('simpleModalSaveBtn').onclick = function() { saveFileType(); };
+  document.getElementById('simpleModalOverlay').classList.add('open');
+}
+function editFileType(id) { openFileTypeModal(id); }
+function saveFileType() {
+  var key = document.getElementById('s_key').value.trim().toLowerCase();
+  var label = document.getElementById('s_label').value.trim();
+  if (!key || !label) { alert('请填写类型标识和显示名称'); return; }
+  var obj = { key: key, label: label, sort: parseInt(document.getElementById('s_sort').value) || 0 };
+  var p = editingFileTypeId
+    ? supabaseClient.from('file_types').update(obj).eq('id', editingFileTypeId)
+    : supabaseClient.from('file_types').insert(obj);
+  p.then(function(res) {
+    if (res.error) { alert('保存失败：' + res.error.message); return; }
+    closeModal('simpleModalOverlay'); loadReferenceData(); showToast('保存成功！');
+  });
+}
+function deleteFileType(id) {
+  var ft = cacheData.fileTypes.find(function(x) { return x.id === id; });
+  document.getElementById('confirmTitle').textContent = '确认删除文件类型？';
+  document.getElementById('confirmDesc').textContent = '将删除文件类型：' + (ft ? ft.label : '') + '（历史记录仍保留原类型标识，但新建时将无法再选）';
+  document.getElementById('confirmBtn').onclick = function() {
+    supabaseClient.from('file_types').delete().eq('id', id).then(function() {
+      closeModal('confirmModalOverlay'); loadReferenceData(); showToast('删除成功！');
+    });
+  };
+  document.getElementById('confirmModalOverlay').classList.add('open');
 }
 
 function populateTypeSelect() {
@@ -832,7 +908,7 @@ function switchPage(page, el) {
   document.getElementById('page-' + page).classList.add('active');
   document.querySelectorAll('.nav-item').forEach(function(n) { n.classList.remove('active'); });
   el.classList.add('active');
-  var titles = { records: '材料记录', tags: '标签管理', departments: '部门管理', types: '会议类型', uploaders: '提交人管理' };
+  var titles = { records: '材料记录', tags: '标签管理', departments: '部门管理', types: '会议类型', filetypes: '文件类型', uploaders: '提交人管理' };
   document.getElementById('topbarTitle').textContent = titles[page] || '';
 }
 
