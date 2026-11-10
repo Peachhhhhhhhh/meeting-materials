@@ -571,15 +571,29 @@ function loadReferenceData() {
     supabaseClient.from('meeting_types').select('*').order('sort', { ascending: true }),
     supabaseClient.from('departments').select('*').order('sort', { ascending: true }),
     supabaseClient.from('uploaders').select('*'),
-    supabaseClient.from('tags').select('*').order('sort', { ascending: true }),
-    supabaseClient.from('file_types').select('*').order('sort', { ascending: true })
+    supabaseClient.from('tags').select('*').order('sort', { ascending: true })
   ]).then(function(results) {
     cacheData.types = results[0].data || [];
     cacheData.departments = results[1].data || [];
     cacheData.uploaders = results[2].data || [];
     cacheData.tags = results[3].data || [];
-    cacheData.fileTypes = results[4].data || [];
 
+    // file_types 表可能尚未迁移（见 database/file-types.sql），缺失时退回内置默认
+    return supabaseClient.from('file_types').select('*').order('sort', { ascending: true }).then(function(r) {
+      if (r.error) {
+        cacheData.fileTypes = [
+          { key: 'docx', label: 'Word (.docx)', sort: 1 },
+          { key: 'xlsx', label: 'Excel (.xlsx)', sort: 2 },
+          { key: 'pptx', label: 'PPT (.pptx)',  sort: 3 },
+          { key: 'pdf',  label: 'PDF (.pdf)',   sort: 4 }
+        ];
+        console.warn('file_types 表未创建，已退回内置类型（请在 Supabase 执行 database/file-types.sql）');
+      } else {
+        cacheData.fileTypes = r.data || [];
+      }
+      return null;
+    });
+  }).then(function() {
     // Populate selects
     populateTypeSelect();
     populateDeptSelect();
